@@ -1,18 +1,11 @@
 import time
-
 from immoweb_scraper import automated_scraping
 import pandas as pd
-import psycopg2
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from config import config as cfg
 
-
-# def create_cur(host, pw):
-#     connection = psycopg2.connect(user="automation", password=pw,
-#                                   host=host, port="5432", database="real_estate")
-#     return connection.cursor(), connection
 
 def create_con(host, pw):
     url = URL.create(drivername="postgresql", username="automation", host=host, database="real_estate", password=pw)
