@@ -2,81 +2,53 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import pandas as pd
-from pandas import json_normalize
+import os
 
 '''
 set up: choose below parameters
 '''
-
-# select postcodes to search (add them to below list)
-postcodes = [1070, 1160,1082,1000,1030,1040,1050,1140,1190,1090,1080,1081,1060,1210,1180,1170,1200,1150]
-
-# choose which type of listings you want to search
-sales = True
-rental = True
-
-# type of property to search
-houses = True
-apartments = True
-
-# set min and max floor area
-min_floor_area = 50
-max_floor_area = 150
-
-# set min and max number of bedrooms
-min_num_bedrooms = 1
-max_num_bedrooms = 3
-
-# set the number of pages of results you want to scrape (if in doubt, leave unchanged)
-max_pages = 1000
-
 '''
-Scraper
+https://www.immoweb.be/en/search/land/for-sale?countries=BE&postalCodes=BE-3270,BE-3271&page=1&orderBy=relevance
+Credits to: https://github.com/pierodellagiustina/immoweb-be-scraper
 '''
-property_type = ''
-if houses & apartments:
-    property_type = 'house-and-apartment'
-elif houses:
-    property_type = 'house'
-elif apartments:
-    property_type = 'apartment'
 
-transaction_types = []
-if sales:
-    transaction_types.append('for-sale')
-if rental:
-    transaction_types.append('for-rent')
 
-# initialize results df
-if sales:
-    outp_sales = pd.DataFrame()
-if rental:
-    outp_rental = pd.DataFrame()
+def convert_postalcodes(pcs):
+    gms = []
+    for pc in pcs:
+        r = requests.get(f"https://api.basisregisters.vlaanderen.be/v1/postinfo/{pc}").json()
+        gms.append(r["postnamen"][0]["geografischeNaam"]["spelling"])
+    return gms
 
-for tt in transaction_types:
-    print('Processing properties ', tt)
 
-    for pc in postcodes:
+def scraper(pcs, gms, mp):
+    ls_id = []
+    ls_customer_name = []
+    ls_prop_type = []
+    ls_prop_postal_code = []
+    ls_prop_street = []
+    ls_prop_house_no = []
+    ls_prop_land_surface = []
+    ls_trans_sale_price = []
+    ls_trans_old_sale_price = []
+    ls_trans_price_per_sqm = []
+    ls_latitude = []
+    ls_longitude = []
 
-        pc = str(pc)
-        print('Processing postcode ' + pc)
+    for pc, gm in zip(pcs, gms):
 
-        for pg in range(1, max_pages):
+        print(f'Processing postcode {pc}')
+
+        for pg in range(1, mp):
 
             if pg % 5 == 0:
                 print(pg)
 
-            pg = str(pg)
-            min_floor_area = str(min_floor_area)
-            max_floor_area = str(max_floor_area)
-            min_num_bedrooms = str(min_num_bedrooms)
-            max_num_bedrooms = str(max_num_bedrooms)
-
-            # create url
-            url = f'https://www.immoweb.be/en/search/{property_type}/{tt}/st-gilles/{pc}?countries=BE&minBedroomCount={min_num_bedrooms}&maxBedroomCount={max_num_bedrooms}&maxSurface={max_floor_area}&minSurface={min_floor_area}&page={pg}&orderBy=relevance'
+            # url = f'https://www.immoweb.be/en/search/{property_type}/{tt}/{gm}/{pc}?countries=BE&minBedroomCount={min_num_bedrooms}&maxBedroomCount={max_num_bedrooms}&maxSurface={max_floor_area}&minSurface={min_floor_area}&page={pg}&orderBy=relevance'
 
             # request url and format it
-            r = requests.get(url)
+            r = requests.get(f'https://www.immoweb.be/en/search/land/for-sale/{gm}/{pc}?countries=BE'
+                             f'&page={pg}&orderBy=relevance')
             soup = BeautifulSoup(r.text, 'html.parser')
 
             # extract bits I need
@@ -85,7 +57,6 @@ for tt in transaction_types:
 
             # get json string from ':results' and put it into a dictionary
             res_json = json.loads(res_dic[':results'])
-
             # if the page is empty, do not continue running
             if len(res_json) == 0:
                 print('Total number of pages processed ', str(int(pg) - 1))
@@ -93,123 +64,56 @@ for tt in transaction_types:
 
             # loop through the items in the page
             for i in range(len(res_json)):
-
                 elem = res_json[i]
-
                 # keep the keys i'm interested in
-                elem_subset = {k: elem[k] for k in ('id', 'flags', 'property', 'transaction', 'price')}
-
+                elem_subset = {k: elem[k] for k in ('id', 'customerName', 'flags', 'property', 'transaction', 'price')}
                 # flatten the dictionary and append it to df
-                df_elem = json_normalize(elem_subset, sep='_')
+                elem_prop = elem_subset['property']
 
-                if tt == 'for-sale':
-                    outp_sales = outp_sales._append(df_elem, sort=False, ignore_index=True)
-                elif tt == 'for-rent':
-                    outp_rental = outp_rental._append(df_elem, sort=False, ignore_index=True)
+                ls_id.append(elem_subset['id'])
+                ls_customer_name.append(elem_subset['customerName'])
+                ls_prop_type.append(elem_prop['type'])
+                ls_prop_postal_code.append(elem_prop['location']['postalCode'])
+                ls_prop_street.append(elem_prop['location']['street'])
+                ls_prop_house_no.append(elem_prop['location']['number'])
+                ls_prop_land_surface.append(elem_prop['landSurface'])
+                ls_trans_sale_price.append(elem_subset['transaction']['sale']['price'])
+                ls_trans_old_sale_price.append(elem_subset['transaction']['sale']['oldPrice'])
+                ls_trans_price_per_sqm.append(elem_subset['transaction']['sale']['pricePerSqm'])
+                ls_latitude.append(elem_prop['location']['latitude'])
+                ls_longitude.append(elem_prop['location']['longitude'])
 
-# cleanse the dataset - sales first
-if sales:
-    outp_sales_cleansed = outp_sales.copy()
+    return pd.DataFrame.from_dict({'immoweb_id': ls_id, 'customerName': ls_customer_name, 'propType': ls_prop_type,
+                                   'propPostalCode': ls_prop_postal_code, 'propStreet': ls_prop_street,
+                                   'propHouseNo': ls_prop_house_no, 'propLandSurface': ls_prop_land_surface,
+                                   'transSalePrice': ls_trans_sale_price,
+                                   'transPricePerSqm': ls_trans_price_per_sqm,
+                                   'latitude': ls_latitude, 'longitude': ls_longitude})
 
-    # keep standard sales only (get rid of group sales and similar)
-    outp_sales_cleansed = outp_sales_cleansed[outp_sales_cleansed.price_type == 'residential_sale']
 
-    # get subset of cols
-    cols_subset_sales = [
-        "id",
-        "property_location_locality",
-        "property_location_postalCode",
-        "property_location_street",
-        "property_location_number",
-        "property_location_latitude",
-        "property_location_longitude",
-        "price_mainValue",
-        "property_bedroomCount",
-        "property_netHabitableSurface",
-        "property_roomCount",
-        'property_type'
-    ]
+def automated_scraping(pcs: list) -> pd.DataFrame:
+    cfg = read_config()
+    if len(pcs) == 0:
+        pcs = cfg["postal_codes"].split(',')
 
-    outp_sales_cleansed = outp_sales_cleansed[cols_subset_sales]
+    return scraper(pcs, convert_postalcodes(pcs), int(cfg["max_pages"]))
 
-    # set new col names
-    outp_sales_cleansed.columns = [
-        'id',
-        'locality',
-        'postcode',
-        'street',
-        'number',
-        'lat',
-        'long',
-        'price',
-        'bedroom_count',
-        'floor_area',
-        'room_count',
-        'property_type'
-    ]
 
-    # create new cols
-    outp_sales_cleansed['price_per_sqm'] = outp_sales_cleansed['price'].astype(
-        'float') / outp_sales_cleansed.floor_area.astype('float')
-    outp_sales_cleansed['price_per_bedroom'] = outp_sales_cleansed['price'].astype(
-        'float') / outp_sales_cleansed.bedroom_count.astype('float')
-    outp_sales_cleansed['price_per_room'] = outp_sales_cleansed['price'].astype(
-        'float') / outp_sales_cleansed.room_count.astype('float')  # poorly populated
+def read_config():
+    with open(os.path.join(os.path.dirname(__file__), "config.cfg")) as json_file:
+        cfg = json.load(json_file)
+    return cfg
 
-# cleanse rental results
-if rental:
-    outp_rental_cleansed = outp_rental.copy()
 
-    # get rid of non-standard rental values
-    outp_rental_cleansed = outp_rental_cleansed[outp_rental_cleansed.price_type == 'residential_monthly_rent']
+if __name__ == "__main__":
+    config = read_config()
 
-    # get subset of cols
-    cols_subset_rental = [
-        "id",
-        "property_location_locality",
-        "property_location_postalCode",
-        "property_location_street",
-        "property_location_number",
-        "property_location_latitude",
-        "property_location_longitude",
-        "transaction_rental_monthlyRentalPrice",
-        'transaction_rental_monthlyRentalCosts',
-        "property_bedroomCount",
-        "property_netHabitableSurface",
-        "property_roomCount",
-    ]
+    # select postcodes to search (add them to below list)
+    postcodes = config["postal_codes"].split(',')
+    gemeenten = convert_postalcodes(postcodes)
 
-    outp_rental_cleansed = outp_rental_cleansed[cols_subset_rental]
-
-    # rename columns
-    cols_rename_rental = [
-        'id',
-        'locality',
-        'postcode',
-        'street',
-        'number',
-        'lat',
-        'long',
-        'rent',
-        'costs',
-        'bedroom_count',
-        'floor_area',
-        'room_count'
-    ]
-
-    outp_rental_cleansed.columns = cols_rename_rental
-
-    # add new cols
-    outp_rental_cleansed['rent_incl_costs'] = outp_rental_cleansed.rent.astype(
-        'float') + outp_rental_cleansed.costs.astype('float').fillna(0)
-    outp_rental_cleansed['rent_per_bedroom'] = outp_rental_cleansed.rent.astype(
-        'float') / outp_rental_cleansed.bedroom_count.astype('float')
-    outp_rental_cleansed['rent_incl_costs_per_bedroom'] = outp_rental_cleansed.rent_incl_costs.astype(
-        'float') / outp_rental_cleansed.bedroom_count.astype('float')
-
-# write to csv
-if sales:
-    outp_sales_cleansed.to_csv('outp_sales_cleansed.csv')
-
-if rental:
-    outp_rental_cleansed.to_csv('outp_rental_cleansed.csv')
+    # set the number of pages of results you want to scrape (if in doubt, leave unchanged)
+    max_pages = int(config["max_pages"])
+    out = scraper(postcodes, gemeenten, max_pages)
+    # write to csv
+    out.to_csv('out.csv')
