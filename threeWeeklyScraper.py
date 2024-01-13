@@ -59,8 +59,6 @@ def update_existing_ids(df_serv: pd.DataFrame, df_scrap: pd.DataFrame, con: sqla
         print(f"Updated id: {immoweb_id}")
         i += 1
     print(f"Updated {i} record(s)")
-    print("Overview of ids:")
-    print(df_updated['id'].to_list())
     con.commit()
 
 
@@ -70,7 +68,7 @@ def add_new_ids(con, scrape, server):
                    'transSalePrice', 'transPricePerSqm', 'latitude', 'longitude']]
     dfs__ = dfs_[~dfs_['immoweb_id'].isin(server['immoweb_id'].tolist())]
     dfs__.to_sql(cfg["table"], con, if_exists='append', index=False)  # new immoweb_id's can be directly added
-    print(f"Added {dfs__['immoweb_id'].count()} record(s)")
+    print(f"{time.time()} -- Added {dfs__['immoweb_id'].count()} record(s)")
     con.commit()
 
 
@@ -82,4 +80,4 @@ if __name__ == "__main__":
     conn, serv = create_con("192.168.1.120", "G*2zHvP7yL8xQ")
     add_new_ids(con=conn, server=serv, scrape=df_scrap)
     update_existing_ids(con=conn, df_serv=serv, df_scrap=df_scrap)
-    print("Done")
+    print(f"{time.time()} -- Done")

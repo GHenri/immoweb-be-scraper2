@@ -37,18 +37,13 @@ def scraper(pcs, gms, mp):
 
     for pc, gm in zip(pcs, gms):
 
-        print(f'Processing postcode {pc}')
-
         for pg in range(1, mp):
-
-            if pg % 5 == 0:
-                print(pg)
-
-            # url = f'https://www.immoweb.be/en/search/{property_type}/{tt}/{gm}/{pc}?countries=BE&minBedroomCount={min_num_bedrooms}&maxBedroomCount={max_num_bedrooms}&maxSurface={max_floor_area}&minSurface={min_floor_area}&page={pg}&orderBy=relevance'
-
             # request url and format it
+            # url = f'https://www.immoweb.be/en/search/{property_type}/{tt}/{gm}/{pc}?countries=BE&minBedroomCount=
+            # {min_num_bedrooms}&maxBedroomCount={max_num_bedrooms}&maxSurface={max_floor_area}&minSurface={min_floor_area}&page={pg}&orderBy=relevance'
             r = requests.get(f'https://www.immoweb.be/en/search/land/for-sale/{gm}/{pc}?countries=BE'
                              f'&page={pg}&orderBy=relevance')
+
             soup = BeautifulSoup(r.text, 'html.parser')
 
             # extract bits I need
@@ -59,9 +54,7 @@ def scraper(pcs, gms, mp):
             res_json = json.loads(res_dic[':results'])
             # if the page is empty, do not continue running
             if len(res_json) == 0:
-                print('Total number of pages processed ', str(int(pg) - 1))
                 break
-
             # loop through the items in the page
             for i in range(len(res_json)):
                 elem = res_json[i]
