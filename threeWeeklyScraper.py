@@ -5,10 +5,11 @@ import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from config import config as cfg
+from argparse import ArgumentParser
 
 
-def create_con(host, pw):
-    url = URL.create(drivername="postgresql", username="automation", host=host, database="real_estate", password=pw)
+def create_con(host, pw, user):
+    url = URL.create(drivername="postgresql", username=user, host=host, database="real_estate", password=pw)
     engine = create_engine(url)
 
     sql = f"""   SELECT * 
@@ -73,11 +74,14 @@ def add_new_ids(con, scrape, server):
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument('host', type=str, help="host address of Postgres database")
+    args = parser.parse_args()
     df_scrap = automated_scraping([3270, 3271])
     #df_scrap = pd.read_csv("./3270_3271.csv")  # read in CSV for manual adjustments
     #df_scrap.to_csv("3270_3271.csv")
 
-    conn, serv = create_con("192.168.1.120", "G*2zHvP7yL8xQ")
+    conn, serv = create_con(args.host, cfg["db_pw"], cfg["db_user"])
     add_new_ids(con=conn, server=serv, scrape=df_scrap)
     update_existing_ids(con=conn, df_serv=serv, df_scrap=df_scrap)
     print(f"{time.time()} -- Done")
