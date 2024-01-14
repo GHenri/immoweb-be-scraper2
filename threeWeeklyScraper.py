@@ -4,14 +4,14 @@ import pandas as pd
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import URL
-from sqlalchemy import engine as eng
+from sqlalchemy.engine import URL
 from config import config as cfg
 from argparse import ArgumentParser
 
 
 def create_con(host, pw, user):
-    url = eng.URL(drivername='postgresql', username=user, password=pw, host=host,
-                  database="real_estate", query={}, port=5432)
+    url = URL(drivername='postgresql', username=user, password=pw, host=host,
+              database="real_estate", query={}, port=5432)
     # url = URL.create(drivername="postgresql", username=user, host=host, database="real_estate", password=pw)
     engine = create_engine(url)
 
@@ -32,7 +32,6 @@ def update_existing_ids(df_serv: pd.DataFrame, df_scrap: pd.DataFrame, con: sqla
     df_updated = df_merge[(df_merge['transSalePrice_x'] != df_merge['transSalePrice_y'])]
     i = 0
     for id_ in df_updated['id']:
-
         sql = f"""INSERT INTO {cfg["backup"]} ("immoweb_id", "customerName", "propType", "propStreet", 
                                             "propHouseNo", "propLandSurface", "transSalePrice", "transPricePerSqm", 
                                             "scrapeDate", "latitude", "longitude", "id")
@@ -81,8 +80,8 @@ if __name__ == "__main__":
     parser.add_argument('host', type=str, help="host address of Postgres database")
     args = parser.parse_args()
     df_scrap = automated_scraping([3270, 3271])
-    #df_scrap = pd.read_csv("./3270_3271.csv")  # read in CSV for manual adjustments
-    #df_scrap.to_csv("3270_3271.csv")
+    # df_scrap = pd.read_csv("./3270_3271.csv")  # read in CSV for manual adjustments
+    # df_scrap.to_csv("3270_3271.csv")
 
     conn, serv = create_con(args.host, cfg["db_pw"], cfg["db_user"])
     add_new_ids(con=conn, server=serv, scrape=df_scrap)
