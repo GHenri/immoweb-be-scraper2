@@ -4,7 +4,7 @@ import pandas as pd
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import URL
-from sqlalchemy.engine import URL
+#from sqlalchemy.engine import URL
 from config import config as cfg
 from argparse import ArgumentParser
 
