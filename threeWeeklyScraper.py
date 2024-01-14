@@ -4,20 +4,19 @@ import pandas as pd
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import URL
-#from sqlalchemy.engine import URL
 from config import config as cfg
 from argparse import ArgumentParser
 
 
 def create_con(host, pw, user):
-    url = URL(drivername='postgresql', username=user, password=pw, host=host,
-              database="real_estate", query={}, port=5432)
-    # url = URL.create(drivername="postgresql", username=user, host=host, database="real_estate", password=pw)
-    engine = create_engine(url)
+    # url = URL(drivername='postgresql', username=user, password=pw, host=host,
+    #           database="real_estate", query={}, port=5432)
+    url = URL.create(drivername="postgresql", username=user, host=host, database="real_estate", password=pw)
+    engine = create_engine(url, future=True)
 
     sql = f"""   SELECT * 
                 FROM {cfg["table"]}"""
-    df_serv = pd.read_sql(sql, con=engine.connect())
+    df_serv = pd.read_sql(text(sql), con=engine.connect())
     # df_serv = pd.read_csv("3270_3271_dup.csv")  # Enable for off-line tests
 
     return engine.connect(), df_serv
