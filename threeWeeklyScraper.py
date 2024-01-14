@@ -4,12 +4,15 @@ import pandas as pd
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import URL
+from sqlalchemy import engine as eng
 from config import config as cfg
 from argparse import ArgumentParser
 
 
 def create_con(host, pw, user):
-    url = URL.create(drivername="postgresql", username=user, host=host, database="real_estate", password=pw)
+    url = eng.URL(drivername='postgresql', username=user, password=pw, host=host,
+                  database="real_estate", query={}, port=5432)
+    # url = URL.create(drivername="postgresql", username=user, host=host, database="real_estate", password=pw)
     engine = create_engine(url)
 
     sql = f"""   SELECT * 
